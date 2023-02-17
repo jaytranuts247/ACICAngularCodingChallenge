@@ -1,17 +1,20 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 
-import { Observable, of } from 'rxjs';
+import { forkJoin, Observable, of } from 'rxjs';
 import { catchError, map, tap } from 'rxjs/operators';
 
-import { LineOfBusiness } from './LineOfBusiness';
+import { LineOfBusiness, LineOfBusinessWithQuote } from './LineOfBusiness';
 import { MessageService } from './message.service';
+import { Quote } from '@angular/compiler';
+import { QuoteCount } from './Quote';
 
 
 @Injectable({ providedIn: 'root' })
 export class LineOfBusinessService {
 
   private lineOfBusinessUrl = 'api/linesOfBusiness';  // URL to web api
+  private recentQuotesUrl = 'api/recentQuotes';  // URL to web api
 
   httpOptions = {
     headers: new HttpHeaders({ 'Content-Type': 'application/json' })
@@ -65,6 +68,124 @@ export class LineOfBusinessService {
          this.log(`no lines of business matching "${term}"`)),
       catchError(this.handleError<LineOfBusiness[]>('searchLinesOfBusiness', []))
     );
+  }
+
+
+  // async getMostPopularLineOfBusiness(): Promise<PopularLineOfBusiness[]> {
+  //   const recentQuotes = await this.http
+  //     .get<Quote[]>(this.recentQuotesUrl)
+  //     .toPromise();
+  //   const lineOfBusiness = await this.http
+  //     .get<LineOfBusiness[]>(this.lineOfBusinessUrl)
+  //     .toPromise();
+
+  //   const quoteCountLineOfBusiness =
+  //     this.getQuoteCountByLineOfBusiness(recentQuotes);
+
+  //   const newLob = lineOfBusiness.map((lob: LineOfBusiness) => {
+  //     return {
+  //       ...lob,
+  //       nbOfQuote: quoteCountLineOfBusiness[lob.id]
+  //         ? quoteCountLineOfBusiness[lob.id]
+  //         : 0,
+  //     };
+  //   });
+
+  //   newLob.sort((a, b) => b.nbOfQuote - a.nbOfQuote);
+  //   console.log(newLob);
+  //   return newLob;
+  // }
+
+  // getMostPopularLineOfBusiness(): Observable<PopularLineOfBusiness[]> {
+  //   return forkJoin
+  // }
+  getPopularLineOfBusiness(): Observable<LineOfBusinessWithQuote[]> {
+    const recentQuotes$ = this.http.get<Quote[]>(this.recentQuotesUrl);
+    const lineOfBusiness$ = this.http.get<LineOfBusiness[]>(
+      this.lineOfBusinessUrl
+    );
+
+    return forkJoin([recentQuotes$, lineOfBusiness$]).pipe(
+      map(([recentQuotes, lineOfBusiness]) => {
+        const quoteCountLineOfBusiness =
+          this.getQuoteCountByLinesOfBusiness(recentQuotes);
+
+        const plobs = lineOfBusiness.map((lob: LineOfBusiness) => {
+          return {
+            ...lob,
+            nbOfQuote: quoteCountLineOfBusiness[lob.id]
+              ? quoteCountLineOfBusiness[lob.id]
+              : 0,
+          };
+        });
+
+        plobs.sort((a, b) => b.nbOfQuote - a.nbOfQuote);
+        console.log(plobs);
+        return plobs;
+      }),
+      tap((_) => this.log(`fetched linesOfBusiness with quote number`)),
+      catchError(this.handleError<LineOfBusinessWithQuote[]>('getPopularLineOfBusiness', []))
+    );
+
+    // return this.http.get<Quote[]>(this.recentQuotesUrl).pipe(
+    //   mergeMap((recentQuotes) => {
+    //     const quoteCountLineOfBusiness = this.getQuoteCountByLineOfBusiness(recentQuotes);
+    //     return this.http.get<LineOfBusiness[]>(this.lineOfBusinessUrl).pipe(
+    //       map((lobs) => {
+    //         const plob = lobs.map((lob: LineOfBusiness) => {
+    //           return {
+    //             ...lob,
+    //             nbOfQuote: quoteCountLineOfBusiness[lob.id]
+    //               ? quoteCountLineOfBusiness[lob.id]
+    //               : 0,
+    //           };
+    //         });
+
+    //         plob.sort((a, b) => b.nbOfQuote - a.nbOfQuote);
+    //         console.log(plob);
+    //         return plob;
+    //       })
+    //     );
+    //   }),
+    //   tap((newLob) => console.log('tab', newLob))
+    // );
+  }
+
+  getLineOfBusinessWithQuote(id: number): Observable<LineOfBusinessWithQuote> {
+    const recentQuotes$ = this.http.get<Quote[]>(this.recentQuotesUrl);
+    const lineOfBusiness$ = this.getLineOfBusiness(id);
+
+    return forkJoin([recentQuotes$, lineOfBusiness$]).pipe(
+      map(([recentQuotes, lineOfBusiness]) => {
+        const nbOfQuote = this.getQuoteCountByLineOfBusiness(recentQuotes, id);
+        return {
+          ...lineOfBusiness,
+          nbOfQuote: nbOfQuote
+        }
+      }),
+      tap((_) => this.log(`fetched lineOfBusiness with Quote Number w/ id=${id}`)),
+      catchError(this.handleError<any>('getLineOfBusinessWithQuote'))
+    )
+
+  }
+
+  getQuoteCountByLinesOfBusiness(quotes: Quote[]): any {
+    return quotes.reduce((acc: any, curr: any): QuoteCount => {
+      const { lineOfBusiness } = curr;
+      if (acc[lineOfBusiness]) {
+        acc[lineOfBusiness]++;
+      } else {
+        acc[lineOfBusiness] = 1;
+      }
+      return acc;
+    }, {});
+  }
+
+  getQuoteCountByLineOfBusiness(quotes: Quote[], id: number): number {
+    return quotes.reduce((acc: any, curr: any) => {
+      const { lineOfBusiness } = curr;
+      return lineOfBusiness === id ? acc + 1 : acc;
+    }, 0);
   }
 
   //////// Save methods //////////

@@ -3,3 +3,7 @@ export interface LineOfBusiness {
   name: string;
   description: string;
 }
+
+export interface LineOfBusinessWithQuote extends LineOfBusiness {
+  nbOfQuote: number;
+}

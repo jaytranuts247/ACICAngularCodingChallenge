@@ -7,6 +7,7 @@
     <br />
     <label for="lineOfBusiness-description">Line Of Business Description: </label>
     <input id="lineOfBusiness-description" [(ngModel)]="lineOfBusiness.description" placeholder="Line Of Business Description"/>
+    <div><span>Number Of Quote: </span><span>{{lineOfBusiness.nbOfQuote}}</span></div>
   </div>
   <button (click)="goBack()">Go Back</button>
   <button (click)="save()">Save</button>

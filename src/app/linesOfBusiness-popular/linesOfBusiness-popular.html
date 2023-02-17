@@ -1,0 +1,7 @@
+<h2>Popular Lines Of Business</h2>
+<div class="linesOfBusiness-menu">
+  <a *ngFor="let lineOfBusiness of popularLineOfBusiness"
+      routerLink="/detail/{{lineOfBusiness.id}}">
+      {{lineOfBusiness.name}}
+  </a>
+</div>
